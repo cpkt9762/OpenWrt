@@ -1,0 +1,41 @@
+name: OpenWrt image builder
+on:
+# push代码时触发workflow
+  push:
+    paths: 
+      - '*.pro'
+      - 'src/**'
+      - '.github/workflows/docker-image.yml'
+  pull_request:
+    paths: 
+      - '*.pro'
+      - 'src/**'
+      - '.github/workflows/docker-image.yml' 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 初始化
+      env:
+        DEBIAN_FRONTEND: noninteractive
+        #可修改imagebuilder下载地址
+        DOWNLOAD_URL: https://downloads.openwrt.org/snapshots/targets/rockchip/armv8/openwrt-imagebuilder-rockchip-armv8.Linux-x86_64.tar.xz
+        
+      run: |
+        sudo apt-get install build-essential libncurses5-dev libncursesw5-dev zlib1g-dev gawk git gettext libssl-dev xsltproc wget unzip python
+        wget -O /tmp/imagebuilder.tar.xz $DOWNLOAD_URL
+        tar -J -x -f openwrt-imagebuilder-*.tar.xz
+        cd openwrt-imagebuilder-*/
+        ./build.sh
+    - name: 打包固件
+      run: |
+        #在PROFILE中填写配置的设备名 在PACKAGES中添加需要的软件包
+        cd /tmp/$(ls /tmp | grep 'openwrt-imagebuilder')
+        sudo make image PROFILE="psg1218a" PACKAGES="luci luci-i18n-base-zh-cn luci-i18n-firewall-zh-cn ssmtp wireguard luci-app-wireguard luci-i18n-wireguard-zh-cn"
+        cp -r bin /tmp
+    - name : 上传固件
+      uses: actions/upload-artifact@master
+      with:
+        name: image
+        path: /tmp/bin
